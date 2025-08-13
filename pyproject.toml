@@ -1,0 +1,23 @@
+[project]
+name = "matmcp"
+version = "0.1.0"
+description = "MatMCP is a tool for searching and adding ingredients to Mathem.se"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "fastmcp>=2.11.3",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.12.4",
+    "pytest>=8.4.1",
+    "scrape-schema-recipe>=0.2.2",
+    "types-beautifulsoup4>=4.12.0.20250516",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
