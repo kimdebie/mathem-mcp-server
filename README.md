@@ -1,72 +1,87 @@
-# MatMCP 🛒
+# Mathem MCP Server 🛒
 
-An MCP (Model Context Protocol) server that provides AI assistants with tools to interact with Mathem.se, a Swedish online grocery store. Search for ingredients, add items to your basket, and manage recipes directly through your AI assistant.
+I built this to help my household order groceries from Mathem.se using Claude. It's an MCP server that lets AI assistants search for products and add them directly to your Mathem basket. Combined with Notion for recipe management, it handles the full workflow from "what should we eat this week?" to having ingredients in the cart.
 
-## Features
+This started as a fork of [sleipner42/mathem-mcp-server](https://github.com/sleipner42/mathem-mcp-server) which I then tweaked and extended for my household's workflow. Big thanks to the original author for getting this started.
 
-- **Search Ingredients**: Find products on Mathem.se by name or description
-- **Add to Basket**: Add products directly to your Mathem.se shopping cart
-- **Recipe Management**: List and fetch detailed recipe information
-- **Structured Data**: Get clean, structured product and recipe data
+This is primarily a personal household tool and very much a WIP, but I'm sharing it in case it's useful to others. If you also use Mathem.se and want to automate your grocery shopping with Claude, give it a try.
 
-## Prerequisites
+## What this repo contains
 
-- **macOS/Linux**: This guide assumes macOS, but Linux instructions are similar
-- **Python 3.12+**: Required for the project
-- **uv**: Fast Python package manager
-- **Mathem.se Account**: For adding items to basket functionality
+This is actually two things:
 
-## Installation
+1. **An MCP server** (`mathem.py`) - The technical implementation that connects to Mathem.se's API
+2. **An agent workspace** (`.claude/skills/`) - Pre-built workflows for Claude Code agents to handle grocery shopping and recipe management
 
-### 1. Install uv (Python package manager)
+If you're using Claude Desktop or another MCP client, you want the server. If you're using Claude Code (the CLI), the skills are already set up for you - just ask Claude to order groceries or manage recipes. Note that the skills include references to the dietary preferences of my household and might need tweaking for yours.
+
+## What you'll need
+
+- Python 3.12+ and [uv](https://github.com/astral-sh/uv) (for running the MCP server)
+- A Mathem.se account (for adding items to basket - search works without it)
+- Notion (optional, if you want recipe management)
+
+## Setup
+
+### Install dependencies
 
 ```bash
+# Install uv if you don't have it
 brew install uv
-```
 
-### 2. Clone and setup the project
-
-```bash
-git clone <your-repo-url>
-cd matmcp
-```
-
-### 3. Install dependencies
-
-```bash
+# Clone and install
+git clone https://github.com/kimdebie/mathem-mcp-server
+cd mathem-mcp-server
 uv sync
 ```
 
-### 4. Configure Mathem.se authentication (optional)
+### Mathem.se authentication (required for adding to basket)
 
-For basket functionality, you need to provide your Mathem.se session cookies:
+The server uses your browser's session cookies to talk to Mathem's API. Without this, you can search but not add items to your basket.
 
-1. Copy the example cookie file:
+```bash
+cp cookie.txt.example cookie.txt
+```
+
+Then grab your session cookies from your browser:
+1. Go to [mathem.se](https://www.mathem.se) and log in
+2. Open DevTools (F12) → Network tab
+3. Refresh the page
+4. Click any request to mathem.se and copy the `Cookie` header
+5. Paste the whole thing into `cookie.txt`
+
+It should look something like:
+```
+sessionid=abc123...; csrftoken=xyz789...; other_stuff=values
+```
+
+### Notion setup (optional, for recipe management)
+
+If you keep recipes in Notion and want Claude to read them:
+
+1. Create an integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations)
+2. Copy the token and add it to `.env`:
    ```bash
-   cp cookie.txt.example cookie.txt
+   cp .env.example .env
+   # Edit .env and set NOTION_API_KEY=ntn_your_token_here
    ```
+3. Share your recipe database with the integration (click the "..." menu → Connections in Notion)
 
-2. Get your session cookies from Mathem.se:
-   - Open your browser and go to [mathem.se](https://www.mathem.se)
-   - Log in to your account
-   - Open Developer Tools (F12)
-   - Go to the Network tab
-   - Refresh the page
-   - Find a request to mathem.se and copy the Cookie header value
-   - Paste it into `cookie.txt`
+## Using with Claude Code
 
-   The format should look like:
-   ```
-   sessionid=your_session_id_here; csrftoken=your_csrf_token_here; other_cookies=value
-   ```
+If you're using Claude Code (the CLI), you need to set up the `.mcp.json` file:
 
-**Note**: Without cookies, you can still search for ingredients, but adding to basket will not work.
+```bash
+cp .mcp.json.example .mcp.json
+```
 
-## Claude Desktop Integration
+Then edit `.mcp.json` and replace `YOUR_TOKEN_HERE` with your actual Notion token (if you're using Notion). The file configures both the Mathem and Notion MCP servers. Claude Code will automatically pick up the MCP servers when working in this directory.
 
-Add this MCP server to your Claude Desktop configuration:
+The skills in `.claude/skills/` are ready to use - just ask Claude to order groceries or manage recipes.
 
-### 1. Open Claude Desktop config
+## Using with Claude Desktop
+
+Edit your Claude Desktop config:
 
 ```bash
 # macOS
@@ -76,9 +91,7 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
 open ~/.config/claude/claude_desktop_config.json
 ```
 
-### 2. Add the server configuration
-
-Replace `/YOUR/PATH/TO/matmcp` with your actual project directory:
+Add the server (replace the path with your actual project directory):
 
 ```json
 {
@@ -87,61 +100,63 @@ Replace `/YOUR/PATH/TO/matmcp` with your actual project directory:
       "command": "uv",
       "args": [
         "--directory",
-        "/YOUR/PATH/TO/matmcp",
+        "/path/to/mathem-mcp-server",
         "run",
         "mathem.py"
       ]
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "ntn_your_notion_token_here"
+      }
     }
   }
 }
 ```
 
-### 3. Restart Claude Desktop
+Restart Claude Desktop and you're good to go.
 
-Close and reopen Claude Desktop to load the new MCP server.
+## How to use it
 
-## Usage
+Just talk to Claude normally:
 
-Once configured, you can ask Claude to:
+- "Find organic tomatoes on Mathem"
+- "Add 2 packages of pasta to my basket"
+- "What recipes do I have in Notion?"
+- "Order all the ingredients for pasta carbonara"
 
-- **Search for ingredients**: "Find organic tomatoes on Mathem"
-- **Add items to basket**: "Add 2 packages of pasta to my Mathem basket"
-- **Get recipes**: "Show me the available recipes"
-- **Recipe details**: "Get the details for recipe number 1"
+The server exposes three tools to Claude:
 
-## Available Tools
+- `search_mathem_ingredients(query)` - Search Mathem.se (queries need to be in Swedish: "kaffe", "mjölk", etc.)
+- `add_to_mathem_basket(product_id, quantity)` - Add items to your cart
+- `get_mathem_basket()` - See what's currently in your basket
 
-### `search_mathem_ingredients(query: str)`
-Search for products on Mathem.se
-
-**Example**: Search for "organic milk"
-
-### `add_to_mathem_basket(product_id: int, quantity: int = 1)`
-Add a product to your Mathem.se shopping basket
-
-**Requirements**: Valid session cookies in `cookie.txt`
-
-### `list_recipes()`
-List all available recipes from `recipes.csv`
-
-### `get_recipe_by_index(index: int)`
-Get detailed recipe information by index
+When you combine this with the Notion MCP server, Claude can read your recipes and figure out what you need to buy.
 
 ## Development
 
-### Running tests
+Run tests:
 ```bash
 uv run pytest
+# or
+uv run test.py
 ```
 
-### Running the server directly
-```bash
-uv run mathem.py
-```
+The tests call the MCP tools directly via `.fn()` to bypass the protocol layer.
 
-### Adding recipes
-Edit `recipes.csv` to add new recipes with columns: `id`, `title`, `url`
+## How it works
 
-## License
+The server uses Mathem's tienda-web-api endpoints:
+- Search: `GET /tienda-web-api/v1/search/?q={query}`
+- Add to cart: `POST /tienda-web-api/v1/cart/items/`
+- View cart: `GET /tienda-web-api/v1/cart/`
 
-This project is for educational and personal use. Please respect Mathem.se's terms of service when using this tool.
+Authentication is cookie-based - the server reads your browser cookies from `cookie.txt` and includes them in API requests.
+
+## Notes
+
+This is a personal project I'm sharing as-is. It works for my household but might need tweaking for yours. Feel free to fork and modify.
+
+Mathem doesn't have an official public API, so this uses their internal endpoints. Be reasonable with your usage and respect their terms of service.

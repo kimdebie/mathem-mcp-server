@@ -2,141 +2,72 @@ from fastmcp import FastMCP
 import httpx
 import json
 import os
-import re
-import csv
 from typing import Any, Dict, List
 from urllib.parse import quote
-import scrape_schema_recipe  # type: ignore
 
-mcp = FastMCP("MatMCP 🛒")
-
-
-def load_recipes_from_csv() -> List[Dict[str, str]]:
-    recipes = []
-    csv_file = "recipes.csv"
-    try:
-        if os.path.exists(csv_file):
-            with open(csv_file, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    recipes.append({
-                        "id": row["id"],
-                        "title": row["title"],
-                        "url": row["url"]
-                    })
-    except Exception:
-        pass
-    return recipes
+mcp = FastMCP("MatMCP 🛒", version="0.2.0")
 
 
-RECIPES: List[Dict[str, str]] = load_recipes_from_csv()
+def search_ingredients(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Search for products using Mathem's search API.
 
+    Uses the direct tienda-web-api endpoint instead of scraping Next.js data,
+    making it more reliable and less fragile to website changes.
 
-def fetch_and_parse_recipe(url: str) -> Dict[str, Any]:
-    headers = {"User-Agent": "MatMCP/0.1"}
-    with httpx.Client(
-        follow_redirects=True,
-        timeout=30.0,
-        headers=headers,
-    ) as client:
-        response = client.get(url)
-        response.raise_for_status()
-        html = response.text
-    recipes = scrape_schema_recipe.loads(
-        html,
-        python_objects=False,
-    )
-    if recipes and isinstance(recipes, list):
-        recipe = recipes[0]
-        if isinstance(recipe, dict):
-            return recipe
-    return {}
-
-
-def search_ingredients(query: str) -> List[Dict[str, Any]]:
+    Args:
+        query: Search term in Swedish
+        limit: Maximum number of products to return (default: 10)
+    """
     encoded_query = quote(query)
-    search_url = f"https://www.mathem.se/se/search/products/?q={encoded_query}"
+    api_url = f"https://www.mathem.se/tienda-web-api/v1/search/?q={encoded_query}"
 
-    headers = {"User-Agent": "MatMCP/0.1"}
-    with httpx.Client(
-        follow_redirects=True,
-        timeout=30.0,
-        headers=headers,
-    ) as client:
-        response = client.get(search_url)
-        response.raise_for_status()
-        html = response.text
-
-    json_match = re.search(
-        r'<script id="__NEXT_DATA__"[^>]*>(.+?)</script>', html, re.DOTALL
-    )
-    if not json_match:
-        return []
+    headers = {"User-Agent": "MatMCP/0.2.0"}
 
     try:
-        next_data = json.loads(json_match.group(1))
-        search_data = (
-            next_data.get("props", {})
-            .get("pageProps", {})
-            .get("dehydratedState", {})
-        )
+        with httpx.Client(
+            follow_redirects=True,
+            timeout=30.0,
+            headers=headers,
+        ) as client:
+            response = client.get(api_url)
+            response.raise_for_status()
+            data = response.json()
 
-        queries = search_data.get("queries", [])
-        product_query = None
-        for query_item in queries:
-            if "searchpageresponse" in str(query_item.get("queryKey", [])):
-                product_query = query_item
-                break
-
-        if not product_query:
-            return []
-
-        items = product_query.get("state", {}).get("data", {}).get("items", [])
         products = []
-
-        for item in items:
-            if item.get("type") != "product":
-                continue
-
-            attrs = item.get("attributes", {})
+        for item in data.get("products", [])[:limit]:
             product = {
-                "id": attrs.get("id"),
-                "name": attrs.get("name", ""),
-                "description": attrs.get("nameExtra", ""),
-                "brand": attrs.get("brand", ""),
-                "price": (
-                    f"{attrs.get('grossPrice', '')} "
-                    f"{attrs.get('currency', 'SEK')}"
-                ),
+                "id": item.get("id"),
+                "name": item.get("name", ""),
+                "description": item.get("name_extra", ""),
+                "brand": item.get("brand", ""),
+                "price": f"{item.get('gross_price', '')} {item.get('currency', 'SEK')}",
                 "unit_price": (
-                    f"{attrs.get('grossUnitPrice', '')} "
-                    f"{attrs.get('currency', 'SEK')} /"
-                    f"{attrs.get('unitPriceQuantityAbbreviation', '')}"
+                    f"{item.get('gross_unit_price', '')} "
+                    f"{item.get('currency', 'SEK')} /"
+                    f"{item.get('unit_price_quantity_abbreviation', '')}"
                 ),
             }
 
-            classifiers = attrs.get("clientClassifiers", [])
+            # Add labels/classifiers if available
+            classifiers = item.get("client_classifiers", [])
             if classifiers:
-                labels = [
-                    c.get("name", "") for c in classifiers if c.get("name")
-                ]
+                labels = [c.get("name", "") for c in classifiers if c.get("name")]
                 if labels:
                     product["labels"] = labels
 
-            promotions = attrs.get("promotions", [])
+            # Add promotions if available
+            promotions = item.get("promotions", [])
             if promotions:
-                offers = [
-                    p.get("title", "") for p in promotions if p.get("title")
-                ]
+                offers = [p.get("title", "") for p in promotions if p.get("title")]
                 if offers:
                     product["offer"] = ", ".join(offers)
 
             if product["name"]:
                 products.append(product)
 
-        return products[:7]
+        return products
 
-    except (json.JSONDecodeError, KeyError, AttributeError):
+    except (httpx.HTTPError, json.JSONDecodeError, KeyError, AttributeError):
         return []
 
 
@@ -149,6 +80,90 @@ def read_cookie_from_file() -> str:
     except Exception:
         pass
     return ""
+
+
+def get_basket() -> Dict[str, Any]:
+    url = "https://www.mathem.se/tienda-web-api/v1/cart/"
+
+    cookie = read_cookie_from_file()
+    headers = {
+        "User-Agent": "MatMCP/0.1",
+    }
+
+    if cookie:
+        headers["Cookie"] = cookie
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            cart_data = response.json()
+
+            # Extract summary information
+            summary = {
+                "total_items": cart_data.get("product_quantity_count", 0),
+                "total_amount": f"{cart_data.get('total_gross_amount', '0')} {cart_data.get('currency', 'SEK')}",
+                "subtotal": f"{cart_data.get('display_price', '0')} {cart_data.get('currency', 'SEK')}",
+            }
+
+            # Extract items from groups
+            items = []
+            for group in cart_data.get("groups", []):
+                category = group.get("title", "Unknown")
+
+                for item in group.get("items", []):
+                    product = item.get("product", {})
+                    quantity = item.get("quantity", 0)
+
+                    product_info = {
+                        "id": product.get("id"),
+                        "name": product.get("name", ""),
+                        "full_name": product.get("full_name", ""),
+                        "brand": product.get("brand", ""),
+                        "description": product.get("name_extra", ""),
+                        "category": category,
+                        "quantity": quantity,
+                        "price": f"{product.get('gross_price', '')} {product.get('currency', 'SEK')}",
+                        "unit_price": f"{product.get('gross_unit_price', '')} {product.get('currency', 'SEK')} /{product.get('unit_price_quantity_abbreviation', '')}",
+                        "total_price": f"{item.get('display_price_total', '')} {product.get('currency', 'SEK')}",
+                        "availability": product.get("availability", {}).get("code", "unknown"),
+                    }
+
+                    # Add discount information if available
+                    discount = product.get("discount")
+                    if discount and discount.get("is_discounted"):
+                        product_info["discount"] = {
+                            "original_price": f"{discount.get('undiscounted_gross_price', '')} {product.get('currency', 'SEK')}",
+                            "description": discount.get("description_short", ""),
+                        }
+
+                    # Add labels/certifications if available
+                    classifiers = product.get("client_classifiers", [])
+                    if classifiers:
+                        labels = [c.get("name", "") for c in classifiers if c.get("name")]
+                        if labels:
+                            product_info["labels"] = labels
+
+                    items.append(product_info)
+
+            return {
+                "success": True,
+                "summary": summary,
+                "items": items,
+            }
+
+    except httpx.HTTPStatusError as e:
+        return {
+            "success": False,
+            "error": f"HTTP {e.response.status_code}",
+            "message": e.response.text if e.response else "Unknown error",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": "Request failed",
+            "message": str(e),
+        }
 
 
 def add_to_basket(product_id: int, quantity: int = 1) -> Dict[str, Any]:
@@ -198,31 +213,96 @@ def add_to_basket(product_id: int, quantity: int = 1) -> Dict[str, Any]:
 
 
 @mcp.tool
-def list_recipes() -> List[Dict[str, str]]:
-    """List available recipes"""
-    return RECIPES
+def search_mathem_ingredients(query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Search for ingredients on Mathem.se grocery store.
 
+    Args:
+        query: Search term in Swedish (e.g., "kaffe", "mjölk", "ägg")
+        limit: Maximum number of products to return (default: 10, max: 40)
 
-@mcp.tool
-def get_recipe_by_index(index: int) -> Dict[str, Any]:
-    """Get a recipe by index from the list"""
-    if index < 0 or index >= len(RECIPES):
-        return {}
-    url = RECIPES[index]["url"]
-    return fetch_and_parse_recipe(url)
+    Returns:
+        List of products (up to limit), each containing:
+        - id (int): Product ID (required for add_to_mathem_basket)
+        - name (str): Product name
+        - description (str): Package size and any restrictions (e.g., "450 g", "Max 2 per kund")
+        - brand (str): Manufacturer/brand name
+        - price (str): Full price with currency (e.g., "49.00 SEK")
+        - unit_price (str): Comparative price per unit (e.g., "108.89 SEK /kg")
+        - labels (list[str], optional): Certifications/labels (e.g., "Rainforest Alliance", "FSC")
+        - offer (str, optional): Special offers (e.g., "Extrapris", "2 för 150 kr")
 
-
-@mcp.tool
-def search_mathem_ingredients(query: str) -> List[Dict[str, Any]]:
-    """Search for ingredients on Mathem.se grocery store"""
-    return search_ingredients(query)
+    Example:
+        results = search_mathem_ingredients("kaffe")  # Returns up to 10 coffee products
+        results = search_mathem_ingredients("kaffe", limit=5)  # Returns up to 5 products
+    """
+    return search_ingredients(query, limit)
 
 
 @mcp.tool
 def add_to_mathem_basket(product_id: int, quantity: int = 1) -> bool:
-    """Add a product to the Mathem.se shopping basket"""
+    """Add a product to the Mathem.se shopping basket.
+
+    IMPORTANT: Requires authentication via cookie.txt file containing valid
+    Mathem.se session cookies. Without authentication, this operation will fail.
+
+    Args:
+        product_id: Product ID from search_mathem_ingredients results
+        quantity: Number of items to add (default: 1)
+
+    Returns:
+        bool: True if successfully added to basket, False otherwise
+
+    Workflow:
+        1. Search for products: search_mathem_ingredients("kaffe")
+        2. Choose a product and get its id field
+        3. Add to basket: add_to_mathem_basket(product_id=62265, quantity=2)
+
+    Authentication Setup:
+        Create cookie.txt in the project root with your Mathem.se session cookies.
+        See cookie.txt.example for format.
+    """
     result = add_to_basket(product_id, quantity)
     return result.get("success", False)
+
+
+@mcp.tool
+def get_mathem_basket() -> Dict[str, Any]:
+    """Get the current contents of the Mathem.se shopping basket.
+
+    IMPORTANT: Requires authentication via cookie.txt file containing valid
+    Mathem.se session cookies. Without authentication, this operation will fail.
+
+    Returns:
+        Dictionary containing:
+        - success (bool): Whether the request succeeded
+        - summary (dict): Cart summary with total_items, total_amount, subtotal
+        - items (list): List of items in the basket, each containing:
+            - id (int): Product ID
+            - name (str): Product name
+            - full_name (str): Full product name including brand
+            - brand (str): Brand name
+            - description (str): Package size and restrictions
+            - category (str): Product category
+            - quantity (int): Quantity in basket
+            - price (str): Unit price
+            - unit_price (str): Comparative price per unit
+            - total_price (str): Total price for this item (price × quantity)
+            - availability (str): Availability status
+            - discount (dict, optional): Discount information if applicable
+            - labels (list[str], optional): Certifications/labels
+
+    Example:
+        basket = get_mathem_basket()
+        if basket["success"]:
+            print(f"You have {basket['summary']['total_items']} items")
+            for item in basket["items"]:
+                print(f"- {item['quantity']}x {item['full_name']}")
+
+    Authentication Setup:
+        Create cookie.txt in the project root with your Mathem.se session cookies.
+        See cookie.txt.example for format.
+    """
+    return get_basket()
 
 
 if __name__ == "__main__":

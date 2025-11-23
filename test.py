@@ -6,27 +6,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mathem
 
 
-def test_list_recipes():
-    """Test listing available recipes."""
-    recipes = mathem.list_recipes.fn()
-    assert isinstance(recipes, list)
-    assert len(recipes) > 0
-    assert "title" in recipes[0]
-    assert "url" in recipes[0]
-    print(f"✅ Found {len(recipes)} recipes")
-
-
-def test_get_recipe():
-    """Test fetching recipe data by index."""
-    recipe_data = mathem.get_recipe_by_index.fn(0)
-    print(json.dumps(recipe_data, indent=2, ensure_ascii=False))
-    assert recipe_data is not None
-    assert "name" in recipe_data
-    assert "recipeIngredient" in recipe_data
-    assert "recipeInstructions" in recipe_data
-    print("✅ Recipe data fetched successfully")
-
-
 def test_search_ingredients():
     """Test searching for ingredients on Mathem.se."""
     results = mathem.search_mathem_ingredients.fn("gul lök")
@@ -37,7 +16,7 @@ def test_search_ingredients():
     product = results[0]
     assert "name" in product
     assert "price" in product
-    assert "search_url" in product
+    assert "id" in product
     print(f"✅ Found {len(results)} products for 'gul lök'")
 
 
@@ -65,44 +44,6 @@ def test_search_variations():
     print("✅ Search variations work correctly")
 
 
-def test_invalid_recipe_index():
-    """Test handling of invalid recipe indices."""
-    result = mathem.get_recipe_by_index.fn(-1)
-    assert result == {}
-
-    result = mathem.get_recipe_by_index.fn(999)
-    assert result == {}
-
-    print("✅ Invalid indices handled correctly")
-
-
-def test_complete_workflow():
-    """Test a complete grocery shopping workflow."""
-    print("\n🛒 Complete Grocery Shopping Workflow Test")
-
-    recipes = mathem.list_recipes.fn()
-    print(f"1. Available recipes: {len(recipes)}")
-
-    recipe = mathem.get_recipe_by_index.fn(0)
-    print(f"2. Recipe: {recipe.get('name', 'Unknown')}")
-
-    if "recipeIngredient" in recipe and recipe["recipeIngredient"]:
-        first_ingredient = recipe["recipeIngredient"][0]
-
-        search_term = "lök" if "lök" in first_ingredient.lower() else "gul lök"
-
-        products = mathem.search_mathem_ingredients.fn(search_term)
-        print(f"3. Found {len(products)} products for ingredient: {first_ingredient}")
-
-        if products:
-            cheapest = min(
-                products, key=lambda p: float(p["price"].replace(",", ".").split()[0])
-            )
-            print(f"4. Cheapest option: {cheapest['name']} - {cheapest['price']}")
-
-    print("✅ Complete workflow successful")
-
-
 def test_add_to_basket():
     print("\n🛒 Testing Add to Basket functionality")
 
@@ -114,32 +55,61 @@ def test_add_to_basket():
     print(f"Testing with product: {test_product['name']} (ID: {product_id})")
 
     result = mathem.add_to_mathem_basket.fn(product_id, 1)
-    print(f"Add to basket result: {json.dumps(result, indent=2, ensure_ascii=False)}")
+    print(f"Add to basket result: {result}")
 
-    assert isinstance(result, dict)
-    assert "success" in result
-    assert "product_id" in result
-    assert result["product_id"] == product_id
+    assert isinstance(result, bool)
 
-    if result["success"]:
+    if result:
         print("✅ Successfully added item to basket")
     else:
-        print(
-            f"⚠️ Failed to add to basket (expected if no cookie): {result.get('error', 'Unknown error')}"
-        )
+        print("⚠️ Failed to add to basket (expected if no cookie)")
 
     print("✅ Add to basket function works correctly")
 
 
-if __name__ == "__main__":
-    print("🧪 Running comprehensive MatMCP tests...\n")
+def test_get_basket():
+    print("\n🛒 Testing Get Basket functionality")
 
-    test_list_recipes()
-    test_get_recipe()
+    result = mathem.get_mathem_basket.fn()
+    print(f"Basket result: {json.dumps(result, indent=2, ensure_ascii=False)}")
+
+    assert isinstance(result, dict)
+    assert "success" in result
+
+    if result["success"]:
+        assert "summary" in result
+        assert "items" in result
+
+        summary = result["summary"]
+        print(f"\n📊 Basket Summary:")
+        print(f"  Total items: {summary['total_items']}")
+        print(f"  Subtotal: {summary['subtotal']}")
+        print(f"  Total amount: {summary['total_amount']}")
+
+        items = result["items"]
+        print(f"\n📦 Items in basket ({len(items)}):")
+        for item in items:
+            print(f"  - {item['quantity']}x {item['full_name']}")
+            print(f"    Price: {item['price']} | Total: {item['total_price']}")
+            if "discount" in item:
+                print(f"    Discount: {item['discount']['description']}")
+            if "labels" in item:
+                print(f"    Labels: {', '.join(item['labels'])}")
+
+        print("✅ Successfully retrieved basket contents")
+    else:
+        print(f"⚠️ Failed to get basket: {result.get('error', 'Unknown error')}")
+        print("⚠️ (expected if no cookie.txt or invalid authentication)")
+
+    print("✅ Get basket function works correctly")
+
+
+if __name__ == "__main__":
+    print("🧪 Running MatMCP tests...\n")
+
     test_search_ingredients()
     test_search_variations()
-    test_invalid_recipe_index()
-    test_complete_workflow()
     test_add_to_basket()
+    test_get_basket()
 
     print("\n🎉 All tests passed!")
