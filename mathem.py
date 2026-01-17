@@ -4,8 +4,16 @@ import json
 import os
 from typing import Any, Dict, List
 from urllib.parse import quote
+from dotenv import load_dotenv
+
+load_dotenv()
 
 mcp = FastMCP("MatMCP 🛒", version="0.2.0")
+
+# Configuration from environment variables
+MATHEM_COUNTRY = os.getenv("MATHEM_COUNTRY", "se")
+MATHEM_LANGUAGE = os.getenv("MATHEM_LANGUAGE", "sv")
+MATHEM_USER_AGENT = os.getenv("MATHEM_USER_AGENT", "MatMCP/0.2.0")
 
 
 def search_ingredients(query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -87,7 +95,9 @@ def get_basket() -> Dict[str, Any]:
 
     cookie = read_cookie_from_file()
     headers = {
-        "User-Agent": "MatMCP/0.1",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Origin": "https://www.mathem.se",
+        "Referer": "https://www.mathem.se/",
     }
 
     if cookie:
@@ -176,12 +186,25 @@ def add_to_basket(product_id: int, quantity: int = 1) -> Dict[str, Any]:
 
     cookie = read_cookie_from_file()
     headers = {
-        "User-Agent": "MatMCP/0.1",
+        "User-Agent": MATHEM_USER_AGENT,
         "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Origin": "https://www.mathem.se",
+        "Referer": "https://www.mathem.se/se/",
+        "x-client-app": "tienda-web",
+        "x-country": MATHEM_COUNTRY,
+        "x-language": MATHEM_LANGUAGE,
     }
 
     if cookie:
         headers["Cookie"] = cookie
+        # Extract CSRF token from cookie and add as header
+        for part in cookie.split(";"):
+            part = part.strip()
+            if part.startswith("csrftoken="):
+                csrf_token = part.split("=", 1)[1]
+                headers["X-CSRFToken"] = csrf_token
+                break
 
     try:
         with httpx.Client(timeout=30.0) as client:

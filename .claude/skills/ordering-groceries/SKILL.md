@@ -53,17 +53,44 @@ The household keeps these basics stocked at home - **DO NOT search for these by 
 
 **Before searching Mathem**, check the "Mathem standaard ingrediënten" Notion database for commonly used items with pre-selected products.
 
-**Database location:** Search Notion for "Mathem standaard ingrediënten" page, which contains an inline database.
-
 **Database structure:**
 - **Ingrediënt** (title) - Ingredient name (e.g., "coffee", "tomaten")
 - **Volledige naam** (rich_text) - Full product name from Mathem (e.g., "Kaffe Mellanrost Löfberg")
 - **product ID** (number) - Mathem product ID (e.g., 62265)
 
+**IMPORTANT - How to find and query the database:**
+
+Inline databases in Notion have TWO different IDs:
+1. **Block ID** - returned by `get-block-children` (DO NOT use this for queries)
+2. **Data Source ID** - the actual ID needed for `query-data-source`
+
+**Correct workflow to access the database:**
+
+```
+1. Use mcp__notion__API-post-search with filter {"property": "object", "value": "data_source"}
+2. Find the database with title containing "standaard" or parent page "Mathem standaard ingrediënten"
+3. Use the returned "id" field (data_source_id) for queries
+4. Query with: mcp__notion__API-query-data-source(data_source_id=<that id>)
+```
+
+**Example - Finding the database:**
+```python
+# Search for all data sources (databases)
+search_result = mcp__notion__API-post-search(
+    filter={"property": "object", "value": "data_source"}
+)
+
+# Look for the one with is_inline=true and properties matching our schema
+# The correct database will have properties: "Ingrediënt", "Volledige naam", "product ID"
+# Use its "id" field for subsequent queries
+```
+
+**DO NOT** try to use the block ID from `get-block-children` - this will return a 404 error.
+
 **Workflow for each ingredient:**
 
 ```
-1. Query the "Mathem standaard ingrediënten" database using the ingredient name
+1. Query the "Mathem standaard ingrediënten" database using the data_source_id
 2. If found in database:
    a. Search Mathem using the exact "Volledige naam" value
    b. Check if the returned product ID matches the stored "product ID"
@@ -241,14 +268,14 @@ This will make future shopping faster by remembering your preferred brands.
 For each item, add a new entry to the database using `mcp__notion__API-post-page`:
 
 ```
-Parent: The "Mathem standaard ingrediënten" database ID (query the page first to get the database ID)
+Parent: Use the data_source_id found via the search method described in step 3
 Properties:
   - Ingrediënt (title): The ingredient name (e.g., "coffee", "milk")
   - Volledige naam (rich_text): The full product name from Mathem (e.g., "Kaffe Mellanrost Löfberg")
   - product ID (number): The Mathem product ID (e.g., 62265)
 ```
 
-**Database ID:** Query "Mathem standaard ingrediënten" page, then retrieve the child database block to get the database ID.
+**IMPORTANT:** Use the **data_source_id** (found by searching for data sources, NOT from get-block-children) as the parent database_id when creating pages. See step 3 for how to find the correct ID.
 ## Handling edge cases
 
 ### Ingredient not found

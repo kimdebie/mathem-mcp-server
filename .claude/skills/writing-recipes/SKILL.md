@@ -5,7 +5,7 @@ description: Creates clear, foolproof recipes in Notion from URLs or description
 
 # Writing Recipes
 
-This skill guides you through creating recipes in Notion that are clear and chronological.
+This skill guides you through creating recipes in Notion that are clear and easy to follow.
 
 ## When to use this skill
 
@@ -17,38 +17,40 @@ This skill guides you through creating recipes in Notion that are clear and chro
 
 ## Recipe philosophy
 
-Every step must be:
+The goal is to **preserve the original recipe's structure** while making it clear and readable in Dutch. Recipes should NOT become significantly longer than the original.
 
-1. **Chronological** - Steps happen in the exact order they're written
-2. **Self-contained** - Each step has all the info needed to execute it
-3. **Simple language** - Short sentences, common words, no complex phrasing
-4. **Small actions** - Break complex tasks into tiny steps
+Every recipe must be:
 
-**BAD example (NOT chronological):**
-```
-1. Snijd de groenten
-2. Bak de ui
-3. Voeg tomaten toe
-4. Doe alles in een ovenschaal
-5. Bak 30 minuten in de oven op 220 graden
-```
-❌ Problem: Step 5 assumes the oven is hot, but we never turned it on!
+1. **Clear language** - Simple Dutch, short sentences, common words
+2. **Preserve structure** - Keep the original recipe's flow; only split steps if genuinely confusing
+3. **Fix obvious issues** - Move oven preheating to the start if it's mentioned late, but don't restructure everything
+4. **Slight expansion OK** - Recipe can be ~20-30% longer if it genuinely improves clarity
 
-**GOOD example (chronological):**
+**BAD example (over-fragmented):**
 ```
 1. Zet de oven aan op 220 graden
-2. Snijd de ui in kleine stukjes
-3. Snijd de tomaten in blokjes
-4. Verwarm een pan met olie
-5. Bak de ui 3 minuten
-6. Voeg de tomaten toe
-7. Bak nog 5 minuten
-8. Doe alles in een ovenschaal
-9. Zet de schaal in de oven
-10. Bak 30 minuten
-11. Haal uit de oven
+2. Snijd de ui
+3. Snijd de ui in kleine stukjes
+4. Snijd de tomaten
+5. Snijd de tomaten in blokjes
+6. Pak een pan
+7. Verwarm de pan
+8. Voeg olie toe
+9. Bak de ui
+10. Bak de ui 3 minuten
+... (continues to 20+ steps)
 ```
-✓ Oven is turned on first, steps are tiny, no assumptions about reading ahead
+❌ Problem: Original recipe had 5 steps, this has 20+! Every action is split unnecessarily.
+
+**GOOD example (preserved structure, clear language):**
+```
+1. Zet de oven aan op 220 graden
+2. Snijd de ui in kleine stukjes en de tomaten in blokjes
+3. Verwarm een pan met olie en bak de ui 3 minuten
+4. Voeg de tomaten toe en bak nog 5 minuten
+5. Doe alles in een ovenschaal en bak 30 minuten in de oven
+```
+✓ Original flow preserved, clear Dutch, oven preheated first (the one obvious fix needed)
 
 ## Workflow
 
@@ -87,58 +89,63 @@ Every step must be:
 4. **Transition to recipe creation:**
    - Once user confirms they want to add the recipe: "Shall I create this recipe in your Notion database?"
    - If yes, proceed to step 1 below (Get the recipe content)
-   - Use your culinary knowledge to develop the full ingredient list and chronological steps
+   - Use your culinary knowledge to develop the full ingredient list and steps
 
 **Important:** Do NOT create the Notion page until the user explicitly confirms they want to save the recipe. The ideation phase is exploratory and conversational.
 
 ### 1. Get the recipe content
 
 **If user provides a URL:**
-```
 1. Use WebFetch to retrieve the recipe page
 2. Extract the title, ingredients list, and cooking steps
 3. Note any cooking times, temperatures, and serving sizes
-```
 
 **If user provides a description:**
-```
 1. Ask clarifying questions about:
    - Ingredients needed
    - Cooking method (oven, stovetop, etc.)
    - Approximate cooking time
    - Number of servings
 2. Use your knowledge to fill in standard steps for that dish type
+
+### 2. Fix obvious chronology issues
+
+**Only intervene when something is clearly wrong.** Trust the original recipe's flow.
+
+**Fix these issues:**
+- Oven preheating mentioned at the end → move to step 1
+- Marinating time not accounted for → add early
+- "In a preheated oven" but no preheat step → add preheat at start
+
+**Do NOT:**
+- Split every step into atomic actions
+- Reorganize the entire recipe "to be chronological"
+- Separate prep from cooking if they flow naturally together
+
+**Example - when to intervene:**
+```
+Original: "...bak 30 minuten in een voorverwarmde oven op 220 graden"
+Fix: Add "Zet de oven aan op 220 graden" as step 1
 ```
 
-### 2. Restructure steps chronologically
-
-This is the **most critical step**. Review all instructions and reorder them so:
-
-**Preheating comes first:**
-- ✓ "Zet de oven aan op X graden" (step 1)
-- ✗ NOT mentioned later as "in een voorverwarmde oven"
-
-**Prep happens before cooking:**
-- ✓ "Snijd de ui" before "Bak de ui"
-- ✗ NOT "Bak de gesneden ui" (assumes cutting already happened)
-
-**Timer-based tasks are explicit:**
-- ✓ "Bak 5 minuten" then "Voeg tomaten toe"
-- ✗ NOT "Bak de ui tot zacht en voeg dan tomaten toe" (vague timing)
-
-**Equipment is prepared before use:**
-- ✓ "Verwarm een pan met olie" before "Bak de ui"
-- ✗ NOT "Bak de ui in olie" (assumes pan is already hot)
+**Example - when NOT to intervene:**
+```
+Original: "Snijd de groenten en bak ze in een pan met olie"
+Keep as: "Snijd de groenten en bak ze in een pan met olie"
+DON'T split into: 4 separate steps for cutting, heating pan, adding oil, cooking
+```
 
 ### 3. Simplify language
+
+Translate to clear, simple Dutch. This is about **language clarity**, not restructuring.
 
 **Use simple, direct sentences:**
 - ✓ "Snijd de ui in kleine stukjes"
 - ✗ "Snipper de ui fijn" (less common verb)
 
-**Avoid complex clauses:**
-- ✓ "Bak 3 minuten. Roer af en toe."
-- ✗ "Bak ongeveer 3 minuten terwijl je regelmatig roert"
+**Clarify vague timing:**
+- ✓ "Bak ongeveer 5 minuten tot zacht"
+- ✗ "Bak tot zacht" (add approximate time)
 
 **Be specific with amounts:**
 - ✓ "Voeg 2 eetlepels olie toe"
@@ -146,7 +153,7 @@ This is the **most critical step**. Review all instructions and reorder them so:
 
 ### 4. Translate to Dutch if needed
 
-If the source recipe is in another language, translate into Dutch.
+If the source recipe is in another language, translate into Dutch while preserving the original step count and structure.
 
 ### 5. Structure the Notion page
 
@@ -172,17 +179,22 @@ Create the recipe page with this structure:
 **Recept section (numbered list):**
 ```
 1. Zet de oven aan op 200 graden
-2. Snijd de uien in kleine stukjes
-3. Snijd de tomaten in blokjes
+2. Snijd de uien en tomaten in stukjes
+3. Verwarm olie in een pan en fruit de uien 5 minuten
 [etc.]
 ```
 
 **Format rules for steps:**
 - Numbered list (1, 2, 3...)
-- One action per step
-- Include timing explicitly
+- Preserve original recipe structure
+- Include timing where helpful
 - Include temperature/heat level
-- Add safety reminders where needed
+
+**Bron (source) section:**
+- Always add the source URL at the end of the recipe when the recipe comes from a URL
+- Format: "Bron: " followed by clickable link with domain name as display text
+- Example: `Bron: [miljuschka.nl](https://miljuschka.nl/recipe-url/)`
+- Skip this section only for recipes created from scratch (ideation) or user descriptions
 
 ### 6. Create the Notion page
 
@@ -205,32 +217,32 @@ Use Notion MCP tools:
 
 ## Examples
 
-### Example 1: Oven-based recipe
+### Example 1: Oven-based recipe (minimal intervention)
 
-**INPUT:** User shares link to "Roasted Vegetables Recipe"
+**INPUT:** User shares link to "Roasted Vegetables Recipe" (6 steps in original)
+
+**Original steps:**
+1. Chop the vegetables into chunks
+2. Toss with olive oil, salt and pepper
+3. Spread on a baking sheet
+4. Roast at 220°C for 30 minutes
+5. Stir halfway through
+6. Serve hot
 
 **YOUR PROCESS:**
 1. Fetch recipe from URL
-2. Identify: oven temp (220°C), ingredients (vegetables, oil), timing (30 min)
-3. Restructure chronologically:
-   - Oven on FIRST
-   - Prep vegetables
-   - Arrange on tray
-   - Into oven
-   - Take out (with reminder about oven mitts)
+2. Identify issue: oven temp mentioned at step 4, should preheat first
+3. Keep structure, just add preheat and translate
 
-**OUTPUT STEPS:**
+**OUTPUT (7 steps - only 1 added):**
 ```
 1. Zet de oven aan op 220 graden
-2. Snijd de courgette in plakken
-3. Snijd de paprika in stukken
-4. Leg bakpapier op een bakplaat
-5. Leg de groenten op de bakplaat
-6. Besprenkel met 2 eetlepels olijfolie
-7. Strooi zout en peper erover
-8. Zet de bakplaat in de oven
-9. Bak 30 minuten
-10. Haal de bakplaat uit de oven
+2. Snijd de groenten in grove stukken
+3. Meng met olijfolie, zout en peper
+4. Verdeel over een bakplaat
+5. Rooster 30 minuten in de oven
+6. Roer halverwege even om
+7. Serveer warm
 ```
 
 ### Example 2: Recipe ideation
@@ -247,38 +259,27 @@ Use Notion MCP tools:
    - **Vitkålsgryta med äpplen** - Braised white cabbage stew with apples and potatoes (40 min)
 4. User picks: "The pasta sounds great!"
 5. Ask: "Shall I create this recipe in your Notion database?"
-6. User confirms, then develop full recipe with chronological steps
+6. User confirms, then develop full recipe (aim for 6-8 steps)
 
-**OUTPUT:** Full recipe created in Notion with detailed steps.
+**OUTPUT:** Full recipe created in Notion with clear, consolidated steps.
 
-### Example 3: Stovetop recipe
+### Example 3: Stovetop recipe (preserve structure)
 
 **INPUT:** User says "I want to add a simple pasta aglio e olio recipe"
 
 **YOUR PROCESS:**
 1. Ask: "How many servings?" (user says 2)
 2. Use standard pasta aglio e olio knowledge
-3. Structure chronologically:
-   - Water on to boil FIRST
-   - Prep garlic while water heats
-   - Cook pasta
-   - Make sauce
-   - Combine
+3. Keep it simple - this is a 5-step recipe, not a 15-step one
 
-**OUTPUT STEPS:**
+**OUTPUT (6 steps):**
 ```
-1. Zet een grote pan water op het vuur
-2. Voeg 1 eetlepel zout toe aan het water
-3. Snijd 4 tenen knoflook in dunne plakjes
-4. Als het water kookt: doe de pasta erin
-5. Kook de pasta 10 minuten (of volgens de verpakking)
-6. Verwarm een pan met 4 eetlepels olijfolie
-7. Bak de knoflook 2 minuten (niet te bruin!)
-8. Giet de pasta af (bewaar 1 kopje pastwater)
-9. Doe de pasta bij de knoflookolie
-10. Voeg 3 eetlepels pastwater toe
-11. Roer goed
-12. Strooi peterselie erover (optioneel)
+1. Kook de pasta volgens de verpakking in ruim gezouten water
+2. Snijd 4 tenen knoflook in dunne plakjes
+3. Verwarm 4 eetlepels olijfolie in een pan en bak de knoflook 2 minuten (niet te bruin!)
+4. Giet de pasta af en bewaar een kopje kookwater
+5. Meng de pasta met de knoflookolie, voeg wat kookwater toe en roer goed
+6. Serveer met peterselie en peper
 ```
 
 ## Handling edge cases
@@ -287,41 +288,39 @@ Use Notion MCP tools:
 - **Problem:** "Bak tot goudbruin"
 - **Solution:** Add approximate time: "Bak 5-7 minuten tot goudbruin"
 
-### Recipe has complex multi-tasking
-- **Problem:** "While the sauce simmers, prepare the vegetables"
-- **Solution:** Break into sequential steps:
-  ```
-  1. Zet het vuur onder de saus laag
-  2. Laat sudderen (10 minuten)
-  3. Ondertussen: snijd de groenten
-  ```
+### Original recipe has multi-tasking
+- **Original:** "While the sauce simmers, prepare the vegetables"
+- **Keep as:** "Laat de saus 10 minuten sudderen. Snijd ondertussen de groenten."
+- **DON'T split into:** 5 separate steps
 
 ### Recipe has specialty ingredients
 - **Problem:** "balsamic reduction", "saffron threads"
-- **Solution:** Use common Dutch names or explain:
+- **Solution:** Use common Dutch names or add brief clarification:
   ```
   • Balsamico azijn (of gewone azijn)
   • Saffraan draden (gele specerij)
   ```
 
-### Source recipe is already in Dutch but poorly structured
-- **Solution:** Still reorder to be chronological! Don't assume it's good just because it's in Dutch.
+### Source recipe is already in Dutch but unclear
+- Focus on **language clarity**, not restructuring
+- Fix vague timing, unclear quantities
+- Keep the original step count
 
 ## Quality checklist
 
 Before creating the Notion page, verify:
 
-- [ ] Oven/heat is turned on in first relevant step
-- [ ] All prep (chopping, measuring) happens before cooking
-- [ ] Each step is one simple action
-- [ ] Timing is explicit (not "until done")
+- [ ] Recipe length is within 20-30% of original (no extreme fragmentation!)
+- [ ] Only obvious chronology issues fixed (oven preheat, marinating time)
+- [ ] Original recipe flow is preserved
 - [ ] Language is simple Dutch (no fancy cooking terms)
-- [ ] Steps are numbered and in execution order
+- [ ] Timing is explicit where it was vague
 - [ ] Ingredients match what's used in steps
+- [ ] Source URL included at the end (if recipe came from a URL)
 
 ## Tips
 
-- **Start chronologically, not logically** - Logical order groups similar tasks; chronological order is when they actually happen
-- **Test with "what if I stop reading here?"** - After each step, would the cook know what to do next?
-- **Timing should be countable** - "Bak 5 minuten" not "Bak tot zacht"
-- **Equipment prep is a step** - "Verwarm een pan" is step 1, not assumed
+- **Preserve, don't restructure** - Your job is translation and clarity, not reorganization
+- **Count your steps** - If original has 6 steps and yours has 15, something went wrong
+- **Trust the source** - Most recipes are already in reasonable order
+- **Only fix what's broken** - Oven preheat missing? Fix it. Steps flow naturally? Leave them alone
